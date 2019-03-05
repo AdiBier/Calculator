@@ -1,0 +1,233 @@
+.386
+.MODEL flat, STDCALL
+
+GetStdHandle PROTO :DWORD
+WriteConsoleA PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
+ReadConsoleA  PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
+ExitProcess PROTO :DWORD
+wsprintfA PROTO C :VARARG ; prototyp procedury w masm32 
+
+.data
+
+	STD_OUTPUT_HANDLE                    equ -11
+	STD_INPUT_HANDLE                     equ -10
+
+	promptA DB "Wprowadz liczbe A: ", 0
+	promptL	DD	$ - promptA 
+	promptB DB "Wprowadz liczbe B: ", 0
+	promptF DB "Wprowadz operand: ", 0 
+	promptG DD $ - promptF
+	odpowiedz DB "Z³y znak, wprowadŸ jeszcze raz", 0
+	odpowiedzz DD $ - odpowiedz
+	
+	nOfCharsWritten DWORD 0
+	inputBuffer BYTE 10 dup ( 0 )
+
+	rout			DD	0 ; faktyczna liczba wyprowadzonych znaków
+	hout 			DD 	0 ; uchwyt wejscia
+	hin				DD  0 ; uchwyt wyjscia
+	nOfCharsRead	DD  0 ; uchwyt wyjscia
+
+	varA			DD 0;
+	varB			DD 0;
+	Wynik           DD 0;
+	zm1		DB	?
+	
+	solutionText2 BYTE "%i wprowadŸ kolejny znak",0
+	solutionText	BYTE "Wynik to: %i" ,0 
+	solutionBuffer BYTE 255 dup(0) 
+	rinp DWORD 0 
+
+	buforBin BYTE 8 DUP(0),0
+
+.code
+main proc
+
+
+push		STD_OUTPUT_HANDLE
+	call	GetStdHandle	; wywo³anie funkcji GetStdHandle
+	mov	hout, EAX			; deskryptor wyjœciowego bufora konsoli
+	
+	push	STD_INPUT_HANDLE
+	call	GetStdHandle	; wywo³anie funkcji GetStdHandle
+	mov		hin, EAX		; deskryptor wyjœciowego bufora konsoli
+	
+	push	0				; rezerwa, musi byæ zero
+	push	OFFSET rout 	; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	promptL			; liczba znaków
+	push	OFFSET promptA 	; wska¿nik na tekst
+ 	push	hout			; deskryptor buforu konsoli
+	call	WriteConsoleA	; wywo³anie funkcji WriteConsoleA   
+
+	push	0
+	push	OFFSET  nOfCharsRead
+	push	10
+	push	OFFSET  inputBuffer
+	push	hin
+	call	ReadConsoleA   
+
+	mov EBX, OFFSET inputBuffer 
+	add EBX, nOfCharsRead 
+	mov [EBX-2], BYTE PTR 0 
+
+	push offset inputBuffer 
+	call atoi 
+	mov varA, EAX
+
+	push	0				; rezerwa, musi byæ zero
+	push	OFFSET rout 	; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	promptG			; liczba znaków
+	push	OFFSET promptF 	; wska¿nik na tekst
+ 	push	hout			; deskryptor buforu konsoli
+	call	WriteConsoleA	; wywo³anie funkcji WriteConsoleA   
+	
+	zly:
+	kolejny:
+
+	push	0
+	push	OFFSET  nOfCharsRead
+	push	10
+	push	OFFSET  zm1
+	push	hin
+	call	ReadConsoleA 
+	
+	.If zm1 != '+' && zm1 != '-' && zm1 != '*' && zm1 != '/' && zm1 != '='
+	
+	push	0				; rezerwa, musi byæ zero
+	push	OFFSET rout 	; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	odpowiedzz			; liczba znaków
+	push	OFFSET odpowiedz 	; wska¿nik na tekst
+ 	push	hout			; deskryptor buforu konsoli
+	call	WriteConsoleA	; wywo³anie funkcji WriteConsoleA  
+	jmp zly
+
+	.elseif zm1 == '='
+	jmp koniec
+		
+	.endif
+
+	push	0				; rezerwa, musi byæ zero
+	push	OFFSET rout 	; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	promptL			; liczba znaków
+	push	OFFSET promptB 	; wska¿nik na tekst
+ 	push	hout			; deskryptor buforu konsoli
+	call	WriteConsoleA	; wywo³anie funkcji WriteConsoleA   
+
+	push	0
+	push	OFFSET  nOfCharsRead
+	push	10
+	push	OFFSET  inputBuffer
+	push	hin
+	call	ReadConsoleA   
+
+	mov EBX, OFFSET inputBuffer 
+	add EBX, nOfCharsRead 
+	mov [EBX-2], BYTE PTR 0 
+
+	push offset inputBuffer 
+	call atoi 
+	mov varB, EAX
+
+
+	.IF zm1 == '+'
+		mov EAX, 0
+		ADD eax, varA
+		add eax, varB 
+		mov varA, EAX
+
+	.elseIF zm1 == '-'
+		mov EAX, 0
+		mov eax, varA
+		sub eax, varB 
+		mov VarA, EAX
+
+	.elseif zm1 == '*'
+		mov EAX, varA
+		mul varB 
+		mov varA, EAX
+
+	.elseif zm1 == '/'
+		mov EAX, 0
+		mov EDX, 0
+		mov EAX, varA
+		idiv  varB
+		mov varA, EAX
+
+	.endif
+
+
+
+	push	varA							; rezerwa, musi byæ zero
+	push	OFFSET solutionText2 			; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	OFFSET solutionBuffer			; liczba znaków
+	call	wsprintfA  						; wska¿nik na tekst
+ 	add		ESP, 12							; deskryptor buforu konsoli
+	mov		rinp, EAX						; wywo³anie funkcji WriteConsoleA   
+
+	push	0						; rezerwa, musi byæ zero
+	push	OFFSET rout 			; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	rinp					; liczba znaków
+	push	OFFSET solutionBuffer 	; wska¿nik na tekst
+ 	push	hout					; deskryptor buforu konsoli
+	call	WriteConsoleA			; wywo³anie funkcji WriteConsoleA  
+
+	jmp kolejny
+	koniec:
+
+	
+	push	varA							; rezerwa, musi byæ zero
+	push	OFFSET solutionText 			; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	OFFSET solutionBuffer			; liczba znaków
+	call	wsprintfA  						; wska¿nik na tekst
+ 	add		ESP, 12							; deskryptor buforu konsoli
+	mov		rinp, EAX						; wywo³anie funkcji WriteConsoleA   
+
+	push	0						; rezerwa, musi byæ zero
+	push	OFFSET rout 			; wskaŸnik na faktyczn¹ liczba wyprowadzonych znaków 
+	push	rinp					; liczba znaków
+	push	OFFSET solutionBuffer 	; wska¿nik na tekst
+ 	push	hout					; deskryptor buforu konsoli
+	call	WriteConsoleA			; wywo³anie funkcji WriteConsoleA  
+
+
+PUSH 0
+	call ExitProcess
+main endp
+
+atoi proc uses esi edx inputBuffAddr:DWORD
+	mov esi, inputBuffAddr
+	xor edx, edx
+	xor EAX, EAX
+	mov AL, BYTE PTR [esi]
+	cmp eax, 2dh
+	je parseNegative
+
+	.Repeat
+		lodsb
+		.Break .if !eax
+		imul edx, edx, 10
+		sub eax, "0"
+		add edx, eax
+	.Until 0
+	mov EAX, EDX
+	jmp endatoi
+
+	parseNegative:
+	inc esi
+	.Repeat
+		lodsb
+		.Break .if !eax
+		imul edx, edx, 10
+		sub eax, "0"
+		add edx, eax
+	.Until 0
+
+	xor EAX,EAX
+	sub EAX, EDX
+	jmp endatoi
+
+	endatoi:
+	ret
+atoi endp
+
+END
